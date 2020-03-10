@@ -4,51 +4,40 @@ import hashlib
 import os
 import sys
 
-def restartProgram():
-    # Kills the program and starts it up again automatically
-    python = sys.executable
-    os.execl(python, python, * sys.argv)
+def getPath():
+    directory = os.path.dirname(os.path.realpath(__file__))
+    path = os.path.join(directory, str(sys.argv[1]))
+    return path
 
 def connect(path):
-    global connection, cursor, currUser
-
+    global connection, cursor
     connection = None
     cursor = None
-
     connection = sqlite3.connect(path)
     cursor = connection.cursor()
     cursor.execute(' PRAGMA forteign_keys=ON; ')
     connection.commit()
     return
 
+# Greeting
 def init():
-    currUser = ""
+    connection = None
+    cursor = None
 
     print("\n\nWelcome to NorthSaskatchewan (not afilliated with Amazon)")
-    print('Type "logout" at any time to be taken back to the sign in screen.')
-    print('Type "quit" at any time to quit NorthSaskatchewan')
     print('\nTo login, type "login"\nTo create a new account, type "signup"')
+    return
 
-
-# Our implementation of the input() function so that we can exit/logout at any time
-def customIn():
-    myInput = input()
-
-    if(myInput == "quit"):
-        exit()
-    elif(myInput == "logout"):
-        restartProgram()
-    else:
-        return myInput
-
-
-# Verifies that the email does not exist yet
 def VerifyNew(email):
-	return True # True or False
+
+
+    return True # True or False
+
 
 # Verifies an existing users email and password
 def VerifyExisting(email, password):
-	return True # True or False
+    return True # True or False
+
 
 # Adds an email and password for a new user
 def CheckAccount():
@@ -91,7 +80,7 @@ def CreateAccount():
         # Loop keeps asking for a new email until a valid one is provided
         while(True):
             print("\nEmail:")
-            usr = customIn()
+            usr = input()
 
             ######## TODO Check to see if the email is already in the database ########
 
@@ -101,18 +90,18 @@ def CreateAccount():
                 break
 
         print("\nPassword:")
-        pwd = customIn()
+        pwd = input()
 
         print("\nName:")
-        name = customIn()
+        name = input()
 
         print("\nCity:")
-        city = customIn()
+        city = input()
 
         # Loop keeps asking for a new gender until a valid one is provided
         while(True):
             print("\nGender (Male/Female/Other):")
-            gender = customIn()
+            gender = input()
 
             if(gender.lower() == "male" or gender.lower() == "m"):
                 gender = "M"
@@ -137,7 +126,7 @@ def CreateAccount():
         # Loop keeps asking until the account info has been verified
         while(True):
             print("\nIs this information correct? (yes/no):")
-            check = customIn()
+            check = input()
 
             if(check.lower() == "yes" or check.lower() == "y"):
                 ReadyToSignUp = True
@@ -164,7 +153,7 @@ def CreateAccount():
 
 # Redirect to account creation or signing in
 def checkSignInCmd():
-    command = customIn()
+    command = input()
 
     # User has an account and wants to log in
     if(command.lower() == "login" or command.lower() == "l"):
@@ -181,20 +170,19 @@ def checkSignInCmd():
 
 
 if (__name__ == "__main__"):
-    # Initialize
+    # Initialize and login
     global connection, cursor, currUser
     init()
-    path="./register.db"
-    # connect(path)
+    path = getPath()
+    connect(path)
 
     # define_tables()
     # Inserting data from previously created table?
-
 
     # Keep trying until successful creation or login
     while(not checkSignInCmd()):
         pass
 
     print("Pretend a function responsible for the rest of the program just run. Have a nice day.")
-    # connection.commit()
-    # connection.close()
+    connection.commit()
+    connection.close()
