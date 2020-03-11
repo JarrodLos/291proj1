@@ -30,9 +30,6 @@ def connect(path):
 
 # Greeting
 def init():
-    global currUsr
-    currUser = ""
-
     print("\n\nWelcome to NorthSaskatchewan (not afilliated with Amazon)")
     print('Type ".logout" at any time to be taken back to the sign in screen.')
     print('Type ".quit" at any time to quit NorthSaskatchewan')
@@ -107,7 +104,7 @@ def VerifyExisting(email, password):
 
 # Adds an email and password for a new user
 def CheckAccount():
-    global currUser
+    global connection, cursor, currUser
 
     print("\nLogin to an Existing Account")
 
@@ -508,14 +505,6 @@ def createProdReview(rating, text, pid):
 
 def createSellerReview(rating, text, email):
     global connection, cursor, currUser
-    # Get the most recent review id (rid)
-    # newRID = '''
-	# 	SELECT MAX(rid)
-	# 	FROM reviews;
-    #     	'''
-    # cursor.execute(newRID)
-    # Row = cursor.fetchone()
-    # rid = Row[0] + 1 # Max + 1
 
     # Create the new review
     newReview = '''
@@ -598,7 +587,7 @@ def listProducts(): # 1
             print("Creating a review for the selected product: " + Row[int(index)][0])
             print("\nPlease enter your rating (1-5): ")
             rating = customIn()
-            while (0 > int(rating)) or (int(rating) > 6):
+            while (0 >= int(rating)) or (int(rating) > 6):
                 print("Please enter a rating between 1-5")
                 rating = customIn()
             print("\nPlease enter your text (1-20 characters):\n")
@@ -634,6 +623,7 @@ def searchSale(): # 3
     print("\nRun the Search Sales")
 
 def searchUser(): # 4 - IN PROGRESS
+
     print('\nSearch Users - Type ".back" to return to Main Menu.')
     backFlag = False # Is set to true if we are breaking out of the program
 
@@ -744,6 +734,82 @@ def searchUser(): # 4 - IN PROGRESS
             # We are done with searching, break out to main menu.
             break
 
+            # While loop for error checking
+            selection = ""
+            while(True):
+                selection = customIn("\nSelect a user (0-" + str(len(allSearchResults) - 1) +"): ")
+
+                # Handle a .back request
+                if(selection == ".back"):
+                    backFlag = True
+                    break
+
+                elif(int(selection) < len(allSearchResults) and int(selection) >= 0):
+                    break
+
+                else:
+                    print("Invalid entry, please enter a number between 0 and " + str(len(allSearchResults) - 1) + ".")
+
+            # Handle a .back request
+            if(backFlag):
+                break
+
+
+            fetchUser = '''
+    		SELECT *
+    		FROM users
+    		WHERE email = ?;
+        	'''
+
+            cursor.execute(fetchUser, (allSearchResults[int(selection)][0],));
+            selectedUser = cursor.fetchone()
+
+            print("\nYou have selected " + selectedUser[1] + ".")
+            print("1: Write a review for " + selectedUser[1])
+            print("2: View " + selectedUser[1] + "'s active listings")
+            print("3: View other's reviews of " + selectedUser[1])
+
+            while(True):
+                selection = customIn("\n(1-3): ")
+
+                # Handle a .back request
+                if(selection == ".back"):
+                    backFlag = True
+                    break
+
+                elif(int(selection) > 0 and int(selection) <= 3):
+                    break
+
+                else:
+                    print("\nInput not valid, please enter a number between 1 and 3.")
+
+            # Handle a .back request
+            if(backFlag):
+                break
+
+            if(selection == "1"): # Write a user review
+                print("Creating a review for the selected user: " + selectedUser[1])
+                print("\nPlease enter your rating (1-5): ")
+                rating = customIn()
+                while (0 >= int(rating)) or (int(rating) > 6):
+                    print("Please enter a rating between 1-5")
+                    rating = customIn()
+                print("\nPlease enter your text (1-20 characters):\n")
+                text = customIn()
+                email = selectedUser[0]
+                createSellerReview(rating, text, email)
+                print("Thank-you for your review!\n")
+                return
+
+            elif(selection == "2"): # NOT DONE (In progress)
+                print("\n" + selectedUser[1] + "'s Active listings")
+
+                printActiveListings(selectedUser[0])
+
+            else: # NOT DONE
+                print("View review")
+
+            break # We are done with searching, break out to main menu.
 
 # Main menu
 def mainMenu():
@@ -753,7 +819,6 @@ def mainMenu():
     print("2: Post a Sale")
     print("3: Search Sales")
     print("4: Search Users\n")
-
 
     selection = customIn("(1-4): ")
 
