@@ -259,7 +259,7 @@ def viewReviews(user):
             else:
                 comment = allSearchResults[result][2]
 
-            print(str(result) + ": " + allSearchResults[result][0] + " | " + str(allSearchResults[result][1]) + " | " + comment + " | " + str(allSearchResults[result][2]) + str(allSearchResults[result][3]))
+            print(str(result) + ": " + allSearchResults[result][0] + " | " + str(allSearchResults[result][1]) + " | " + comment + " | " + str(allSearchResults[result][3]))
 
 
 def placeBid(sid, selectedSale, resPrice, maxBid):
@@ -375,7 +375,7 @@ def showActiveListingsListProduct(product):
     SELECT s.lister, count(r.rating), avg(r.rating), s.descr, s.edate, s.cond, max(amount), s.rprice, p.descr, count(pr.rating), avg(pr.rating), s.sid
     FROM (sales s left outer join bids b using (sid)) left outer join products p using (pid), reviews r, previews pr
     WHERE s.sid = ?
-    GROUP BY s.sid;
+    GROUP BY s.sid, r.reviewee,  pr.rid;
     '''
 
     #    AND s.lister = r.reviewee     AND p.pid = pr.pid
@@ -490,7 +490,7 @@ def showActiveListings(user):
         SELECT s.lister, count(r.rating), avg(r.rating), s.descr, s.edate, s.cond, max(amount), s.rprice, p.descr, count(pr.rating), avg(pr.rating), s.sid
         FROM (sales s left outer join bids b using (sid)) left outer join products p using (pid), reviews r, previews pr
         WHERE s.sid = ?
-        GROUP BY s.lister;
+        GROUP BY s.lister, r.reviewee,  pr.rid;
         '''
 
 
@@ -909,7 +909,7 @@ def searchSale(): # 3
         SELECT s.lister, count(r.rating), avg(r.rating), s.descr, s.edate, s.cond, max(amount), s.rprice, p.descr, count(pr.rating), avg(pr.rating), s.sid
         FROM (sales s left outer join bids b using (sid)) left outer join products p using (pid), reviews r, previews pr
         WHERE s.sid = ?
-        GROUP BY s.lister;
+        GROUP BY s.lister, r.reviewee,  pr.rid;
         '''
 
         cursor.execute(fetchSale, (str(allSearchResultsNoneFiltered[int(selection)][7]),));
