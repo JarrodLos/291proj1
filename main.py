@@ -4,8 +4,10 @@ import hashlib
 import os
 import sys
 
+# Kills the program and starts it up again automatically
 def restartProgram():
-    # Kills the program and starts it up again automatically
+    connection.commit()
+    connection.close()
     python = sys.executable
     os.execl(python, python, * sys.argv)
 
@@ -26,6 +28,7 @@ def connect(path):
 
 # Greeting
 def init():
+    global currUsr
     currUser = ""
 
     print("\n\nWelcome to NorthSaskatchewan (not afilliated with Amazon)")
@@ -43,7 +46,6 @@ def customIn():
         restartProgram()
     else:
         return myInput
-
 
 # Verifies that the email does not exist yet
 def VerifyNew(email):
@@ -95,16 +97,17 @@ def VerifyExisting(email, password):
             print("\nWelcome back " + Row2[0] + "!") 
             return True
 
+
 # Adds an email and password for a new user
 def CheckAccount():
     print("\nLogin to an Existing Account")
 
-    usr = input('\nEmail: ')
+    usr = input('\nEmail: ').lower()
 
-    pwd = input('\nPassword: ')
+    pwd = input('\nPassword: ').lower()
 
     if VerifyExisting(usr,pwd):
-        print("\nSign in successful")
+        print("\nSign in successful!")
 
         # Set the current user
         currUser = usr
@@ -136,7 +139,7 @@ def CreateAccount():
         # Loop keeps asking for a new email until a valid one is provided
         while(True):
             print("\nEmail:")
-            usr = customIn()
+            usr = customIn().lower()
 
             ######## TODO Check to see if the email is already in the database ########
 
@@ -154,6 +157,7 @@ def CreateAccount():
 
         print("\nCity:")
         city = customIn()
+
 
         # Loop keeps asking for a new gender until a valid one is provided
         while(True):
@@ -197,6 +201,10 @@ def CreateAccount():
 
     print("\nAccount Created!")
 
+    print("Signing in as " + usr + "...")
+
+    print("Welcome to NorthSaskatchewan, " + name + "!")
+
     # Set the current user
     currUser = usr
 
@@ -225,6 +233,61 @@ def checkSignInCmd():
         print("Input not recognized, please try again")
         return False
 
+def listProducts():
+    print("\nRun the List Products")
+
+def postSale():
+    print("\nRun the Post a Sale")
+
+def searchSale():
+    print("\nRun the Search Sales")
+
+def searchUser():
+    print("\nRun the Search Users")
+
+def followUp():
+    print("\nRun the Follow Up")
+
+
+# Main menu
+def mainMenu():
+    print("\n--------------------------------")
+    print("\nMain Menu")
+    print("\n1: List Products")
+    print("2: Post a Sale")
+    print("3: Search Sales")
+    print("4: Search Users")
+    print("5: 1-2 Follow-Up\n")
+
+    print("(1-5): ")
+
+    selection = customIn().lower()
+
+    if(selection == "1"):
+        print("\n--------------------------------")
+        listProducts()
+
+    elif(selection == "2"):
+        print("\n--------------------------------")
+        postSale()
+
+    elif(selection == "3"):
+        print("\n--------------------------------")
+        searchSale()
+
+    elif(selection == "4"):
+        print("\n--------------------------------")
+        searchUser()
+
+    elif(selection == "5"):
+        print("\n--------------------------------")
+        followUp()
+
+    else:
+        print("\nInput not recognized, please try again")
+
+    return True
+
 
 if (__name__ == "__main__"):
     # Initialize and login
@@ -240,6 +303,9 @@ if (__name__ == "__main__"):
     while(not checkSignInCmd()):
         pass
 
-    print("Pretend a function responsible for the rest of the program just run. Have a nice day.")
+
+    while(mainMenu()):
+        pass
+
     connection.commit()
     connection.close()
