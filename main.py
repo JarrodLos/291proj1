@@ -3,6 +3,7 @@ import time
 import hashlib
 import os
 import sys
+import datetime
 
 # Kills the program and starts it up again automatically
 def restartProgram():
@@ -79,28 +80,26 @@ def VerifyExisting(email, password):
     # Check the password!
     else:
         CheckPwd = '''
-		SELECT name
+		SELECT pwd
 		FROM users u
-		WHERE u.email = :email
-		AND u.pwd LIKE :password;
+		WHERE u.email = :email;
         	'''
         #cursor.execute(' PRAGMA case_sensitive_like=true; ')
         #connection.commit()
-        cursor.execute(CheckPwd, {"email":email, "password":password});
+        cursor.execute(CheckPwd, {"email":email});
 
         Row2 = cursor.fetchone()
-        #cursor.execute(' PRAGMA case_sensitive_like=true; ')
-        #connection.commit()
 
-        # Incorrect password
-        if Row2 is None:
-            return False
-	# Correct Email & Password
-        else:
+        # Correct Email & Password
+        print(str(Row2[0]) + "VS" + password)
+        if str(Row2[0]) ==  password:
             print("\nAccount Found!")
             print("Signing in as " +  email + "...")
-            print("Welcome back " + Row2[0] + "!")
+            print("Welcome back " + Row1[0] + "!")
             return True
+	# Incorrect password
+        else:
+            return False
 
 # Adds an email and password for a new user
 def CheckAccount():
@@ -110,7 +109,7 @@ def CheckAccount():
 
     usr = input('\nEmail: ').lower()
 
-    pwd = input('\nPassword: ').lower()
+    pwd = input('\nPassword: ')
 
     if VerifyExisting(usr,pwd):
 
@@ -514,6 +513,45 @@ def createSellerReview(rating, text, email):
     cursor.execute(newReview, (currUser, email, rating, text))
     connection.commit()
 
+def createSale(edate, descr, cond, rprice, pid):
+    global connection, cursor, currUser
+
+    # Get a unique sid
+    allSids = '''
+    SELECT sid
+    FROM sales;
+    '''
+
+    cursor.execute(allSids);
+    allSidsFound = cursor.fetchall()
+
+    if(len(allSidsFound) == 0):
+        sid = "S00"
+    else:
+        allSidsFoundStripped = [len(allSidsFound)]
+
+        for sid in range(0, len(allSidsFound)):
+            allSidsFoundStripped[0] = int(allSidsFound[sid][0].strip("S"))
+    maxSid = str(max(allSidsFoundStripped) + 1)
+    if len(maxSid) == 1:
+        sid = "S" + "0" + maxSid
+    else:
+        sid = "S" + maxSid
+
+    # Check for no input on pid & rprice
+    if len(pid) == 0:
+        pid = None
+    if len(rprice) == 0:
+        rprice = None
+    
+    # Create the new sale
+    newReview = '''
+		INSERT INTO sales(sid, lister, pid, edate, descr, cond, rprice)
+		VALUES(:sid, :lister, :pid, :edate, :descr, :cond, :rprice);
+        	'''
+    cursor.execute(newReview, {"sid":sid, "lister":currUser, "pid":pid, "edate":edate, "descr":descr, "cond":cond, "rprice":rprice})
+    print("Your sale has been created! Please use sale ID " + sid + " to find your sale")
+    connection.commit()
 
 def listReviews(pid):
     global connection, cursor
@@ -543,6 +581,29 @@ def listSales(pid): # Possibly depreciated
     for i in range(0, len(Row)):
         print("Review #" + str(i + 1) + " " + Row[i][0])
 
+def getcurrentDate():
+    # Get the current date
+
+    now = datetime.datetime.now()
+    unparsedDate = now.strftime("%Y-%m-%d %H:%M:%S")
+    
+    # Parse into the date and time respectively
+    Parse = unparsedDate.split(" ")       
+    # Parse and check the date (0th index - year | 1st index - month | 2nd index - day)
+    date = Parse[0]
+    dateP = date.split("-")
+            
+    # Parse and check the time (0th index - hour | 1st index - min | 2nd index - sec)
+    time = Parse[1]
+    timeP = time.split(":")
+
+    # Return the parsed input as year, month, day, hour, minute and second
+    currDate = ["" for i in range(0,6)]
+    for i in range(0, 3):
+        currDate[i] = int(dateP[i])
+    for j in range(0, 3):
+        currDate[3 + j] = int(timeP[j])
+    return currDate
 
 def listProducts(): # 1
     global connection, cursor, currUser
@@ -584,17 +645,18 @@ def listProducts(): # 1
 
         cmd = customIn()
         if cmd.lower() == "a": # Create a rating (Needs char limit)
-            print("Creating a review for the selected product: " + Row[int(index)][0])
+            print("\nCreating a review for the selected product: " + Row[int(index)][0])
             print("\nPlease enter your rating (1-5): ")
             rating = customIn()
-            while (0 >= int(rating)) or (int(rating) > 6):
-                print("Please enter a rating between 1-5")
+            while (0 >= int(rating)) or (int(rating) >= 6):
+                print("\nPlease enter a rating between 1-5")
                 rating = customIn()
-            print("\nPlease enter your text (1-20 characters):\n")
+            print("\nPlease enter your text (1-20 characters):")
             text = customIn()
             selectedPid = Row[int(index)][0]
             createProdReview(rating, text, selectedPid)
-            print("\nThank you for your review!")
+            print("\nThank-you for your review!")
+
             return
 
         elif cmd.lower() == "b": # List all reviews
@@ -617,7 +679,69 @@ def listProducts(): # 1
 
 
 def postSale(): # 2
-    print("\nRun the Post a Sale")
+    print("\nCreating a new sale!")
+    # sid (Gen), lister (currUser), pid (optional), edate * (Future), descr, cond, rprice(Optional)
+    
+    print("\nPlease enter the sales end date: (yyyy-MM-dd HH:mm:ss)") # Date
+    
+    # Gets the current date to compare with the sales end date 
+    currDate = None
+    currDate = getcurrentDate()    
+
+    while True:
+        edate = customIn() # edate[4/7] = "-", edate[10/16] = ":"
+        if (len(edate) == 19 and edate[4] == edate[7] and edate[10] == " " and edate[13] == edate[16]):
+
+            # Split the entry into its respective date and time
+            Parse = edate.split(" ")
+            date = Parse[0]
+            time = Parse[1]
+
+            # Parse and check the date (0th index - year | 1st index - month | 2nd index - day)
+            # Parse and check the time (0th index - hour | 1st index - min | 2nd index - sec)
+            dateP = date.split("-")
+            timeP = time.split(":")
+            if int(dateP[0]) > currDate[0]: # Year > current Year
+                break
+            elif int(dateP[0]) == currDate[0]: # Year = current Year
+                
+                if int(dateP[1]) > currDate[1]: # Month > current Month
+                    break
+                elif int(dateP[1]) == currDate[1]: # Month = current Month
+                    
+                    if int(dateP[2]) > currDate[2]: # Day > current Day
+                        break
+                    elif int(dateP[2]) == currDate[2]: # Day = current Day
+                        print(timeP[0] + "VS" + str(currDate[3]))
+                        if int(timeP[0]) > currDate[3]: # Hour > current Hour
+                            break
+                        elif int(timeP[0]) == currDate[3]: # Hour = current Hour
+                            print(timeP[1] + "VS" + str(currDate[4]))
+                            if int(timeP[1]) > currDate[4]: # Minute > current Minute
+                                break
+        print("\nPlease enter a valid date in the future in the following format: yyyy-MM-dd HH:mm:ss")
+
+    print("\nPlease enter the sales description: ") # desc
+    while True:
+        descr = customIn()
+        if 20 >= len(descr) > 0:
+            break
+        print("\nPlease enter a valid description between 1-20 chars!")
+
+    print("\nPlease enter the products condition: ") # cond
+    while True:    
+        cond = customIn()
+        if 10 >= len(cond) > 0:
+            break
+        print("\nPlease enter a valid condition between 1-10 chars!")
+
+    print("\n(Optional) Please enter the reserved price: ") # rprice
+    rprice = customIn()
+
+    print("\n(Optional) Please enter the product ID: ") # pid
+    pid = customIn()
+
+    createSale(edate, descr, cond, rprice, pid)
 
 def searchSale(): # 3
     print("\nRun the Search Sales")
@@ -791,14 +915,14 @@ def searchUser(): # 4 - IN PROGRESS
                 print("Creating a review for the selected user: " + selectedUser[1])
                 print("\nPlease enter your rating (1-5): ")
                 rating = customIn()
-                while (0 >= int(rating)) or (int(rating) > 6):
-                    print("Please enter a rating between 1-5")
+                while (0 >= int(rating)) or (int(rating) >= 6):
+                    print("\nPlease enter a rating between 1-5")
                     rating = customIn()
                 print("\nPlease enter your text (1-20 characters):\n")
                 text = customIn()
                 email = selectedUser[0]
                 createSellerReview(rating, text, email)
-                print("Thank-you for your review!\n")
+                print("\nThank-you for your review!")
                 return
 
             elif(selection == "2"): # NOT DONE (In progress)
