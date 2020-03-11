@@ -262,6 +262,68 @@ def viewReviews(user):
             print(str(result) + ": " + allSearchResults[result][0] + " | " + str(allSearchResults[result][1]) + " | " + comment + " | " + str(allSearchResults[result][2]) + str(allSearchResults[result][3]))
 
 
+def placeBid(sid, selectedSale, resPrice, maxBid):
+    global connection, cursor, currUser
+
+    print("\nPlacing a bid on " + selectedSale[3])
+
+    breakFlag = False # True if we are breaking out to the menu
+    newBidAmount = ""
+
+    if(maxBid == 0):
+        currMaxBid = resPrice
+    else:
+        currMaxBid = maxBid
+
+    # Enter a newBidAmount and ensure it is gucci
+    while(True):
+        newBidAmount = customIn("\nBid: ")
+
+        if(newBidAmount == ".back"):
+            breakFlag = True
+            break
+        elif(float(newBidAmount) > currMaxBid):
+            break
+        elif(float(newBidAmount) <= currMaxBid):
+            print("Cannot place bid. Your bid of $" + newBidAmount + " is smaller than the current highest bid of $" + str(currMaxBid))
+        else:
+            print("Input not valid, please enter a float value.")
+
+    # Get a unique bid
+    allBids = '''
+    SELECT bid
+    FROM bids;
+    '''
+
+    cursor.execute(allBids);
+    allBidsFound = cursor.fetchall()
+
+    if(len(allBidsFound) == 0):
+        bid = "B00"
+    else:
+        allBidsFoundStripped = [len(allBidsFound)]
+
+        for bid in range(0, len(allBidsFound)):
+            allBidsFoundStripped[0] = int(allBidsFound[bid][0].strip("B"))
+        if(len(str(max(allBidsFoundStripped) + 1)) == 1):
+            bid = "B0" + str(max(allBidsFoundStripped) + 1)
+        else:
+            bid = "B" + str(max(allBidsFoundStripped) + 1)
+
+    if(breakFlag): # We don't want to continue!
+        return
+
+    # Place the new bid
+    newBid = '''
+		INSERT INTO bids(bid, bidder, sid, bdate, amount)
+		VALUES(?, ?, ?, DATETIME('now'), ?);
+        '''
+    cursor.execute(newBid, (bid, currUser, sid, float(newBidAmount)))
+    connection.commit()
+
+    print("New bid of $" + str(newBidAmount) + " placed on " + selectedSale[0] + "'s " + selectedSale[3] + " successfully!")
+
+
 def showActiveListingsListProduct(product):
 
     searchData = '''
@@ -269,7 +331,7 @@ def showActiveListingsListProduct(product):
             CAST((strftime('%s',s.edate) - strftime('%s', 'now')) /86400 AS TEXT),
             CAST(((strftime('%s', s.edate) - strftime('%s', 'now')) % (86400)) / (3600) AS TEXT),
             CAST((((strftime('%s', s.edate) - strftime('%s', 'now')) % (86400)) % (3600)) / 60 AS TEXT),
-            p.pid
+            p.pid, s.sid
     FROM sales s left outer join bids b using (sid), products p
     WHERE s.edate > datetime('now')
     AND s.pid = p.pid
@@ -310,12 +372,13 @@ def showActiveListingsListProduct(product):
     # Where I left off, may need some testing
 
     fetchSale = '''
-    SELECT s.lister, count(r.rating), avg(r.rating), s.descr, s.edate, s.cond, max(amount), s.rprice, p.descr, count(pr.rating), avg(pr.rating)
+    SELECT s.lister, count(r.rating), avg(r.rating), s.descr, s.edate, s.cond, max(amount), s.rprice, p.descr, count(pr.rating), avg(pr.rating), s.sid
     FROM (sales s left outer join bids b using (sid)) left outer join products p using (pid), reviews r, previews pr
     WHERE p.pid = ?
     AND s.lister = r.reviewee
     AND p.pid = pr.pid
-    GROUP BY s.lister;
+    AND s.sid = b.sid
+    GROUP BY s.sid;
     '''
 
     cursor.execute(fetchSale, (allSearchResults[int(selection)][7],));
@@ -326,13 +389,18 @@ def showActiveListingsListProduct(product):
     print("Lister's Average Rating: " + str(selectedSale[2]))
     print("Sale's Description: " + selectedSale[3])
     print("Sale's End Date: " + str(selectedSale[4]))
-    print("Sale's End Time: " + "-----TODO----")
+    print("Sale's End Time: " + "##################### TODO #####################")
     print("Product's Contioion: " + str(selectedSale[5]))
 
-    if(selectedSale[6] == None):
-        print("Max Bid: " + str(selectedSale[7]))
+    resPrice = 0
+    maxBid = 0
+
+    if(allSearchResults[int(selection)][2] == None):
+        resPrice = allSearchResults[int(selection)][3]
+        print("Reserved Price: $" + str(resPrice))
     else:
-        print("Reserved Price: " + str(selectedSale[6]) + " (This listing has no bids!)")
+        maxBid = allSearchResults[int(selection)][2]
+        print("Max Bid: $" + str(maxBid))
 
     if(selectedSale[8] != None):
         print("Product's Description: " + selectedSale[8])
@@ -362,8 +430,9 @@ def showActiveListingsListProduct(product):
         else:
             print("Input not valid, please enter a number between 1 and 3.")
 
-    if(selection == "1"): # TODO
-        print("#####################Place Bid#####################")
+    if(selection == "1"):
+        placeBid(selectedSale[11], selectedSale, resPrice, maxBid)
+
     elif(selection == "2"):
         # Call this function again
         print("\n" + selectedSale[0] + "'s active listings")
@@ -419,7 +488,7 @@ def showActiveListings(user):
                 print("Invalid entry, please enter a number between 0 and " + str(len(allSearchResults) - 1) + ".")
 
         fetchSale = '''
-        SELECT s.lister, count(r.rating), avg(r.rating), s.descr, s.edate, s.cond, max(amount), s.rprice, p.descr, count(pr.rating), avg(pr.rating)
+        SELECT s.lister, count(r.rating), avg(r.rating), s.descr, s.edate, s.cond, max(amount), s.rprice, p.descr, count(pr.rating), avg(pr.rating), s.sid
         FROM (sales s left outer join bids b using (sid)) left outer join products p using (pid), reviews r, previews pr
         WHERE s.sid = ?
         AND s.lister = r.reviewee
@@ -435,13 +504,23 @@ def showActiveListings(user):
         print("Lister's Average Rating: " + str(selectedSale[2]))
         print("Sale's Description: " + selectedSale[3])
         print("Sale's End Date: " + str(selectedSale[4]))
-        print("Sale's End Time: " + "-----TODO----")
+        print("Sale's End Time: " + "##################### TODO #####################")
         print("Product's Contioion: " + str(selectedSale[5]))
 
-        if(selectedSale[6] == None):
-            print("Max Bid: " + str(selectedSale[7]))
+        # if(selectedSale[6] == None):
+        #     print("Max Bid: " + str(selectedSale[7]))
+        # else:
+        #     print("Reserved Price: $" + str(selectedSale[6]) + " (This listing has no bids!)")
+
+        resPrice = 0
+        maxBid = 0
+
+        if(allSearchResults[int(selection)][2] == None):
+            resPrice = allSearchResults[int(selection)][3]
+            print("Reserved Price: $" + str(resPrice))
         else:
-            print("Reserved Price: " + str(selectedSale[6]) + " (This listing has no bids!)")
+            maxBid = allSearchResults[int(selection)][2]
+            print("Max Bid: $" + str(maxBid))
 
         if(selectedSale[8] != None):
             print("Product's Description: " + selectedSale[8])
@@ -471,8 +550,11 @@ def showActiveListings(user):
             else:
                 print("Input not valid, please enter a number between 1 and 3.")
 
-        if(selection == "1"): # TODO
-            print("#####################Place Bid#####################")
+        if(selection == "1"):
+            # Recall, allSearchResults[int(selection)][7] is the sid that we used to
+            # pull more information about the sale. It will be the sid that we bid on
+            placeBid(selectedSale[11], selectedSale, resPrice, maxBid)
+
         elif(selection == "2"):
             # Call this function again
             print("\n" + selectedSale[0] + "'s active listings")
