@@ -4,6 +4,11 @@ import hashlib
 import os
 import sys
 
+def restartProgram():
+    # Kills the program and starts it up again automatically
+    python = sys.executable
+    os.execl(python, python, * sys.argv)
+
 def getPath():
     directory = os.path.dirname(os.path.realpath(__file__))
     path = os.path.join(directory, str(sys.argv[1]))
@@ -21,23 +26,74 @@ def connect(path):
 
 # Greeting
 def init():
-    connection = None
-    cursor = None
+    currUser = ""
 
     print("\n\nWelcome to NorthSaskatchewan (not afilliated with Amazon)")
+    print('Type "logout" at any time to be taken back to the sign in screen.')
+    print('Type "quit" at any time to quit NorthSaskatchewan')
     print('\nTo login, type "login"\nTo create a new account, type "signup"')
-    return
 
+# Our implementation of the input() function so that we can exit/logout at any time
+def customIn():
+    myInput = input()
+
+    if(myInput == "quit"):
+        exit()
+    elif(myInput == "logout"):
+        restartProgram()
+    else:
+        return myInput
+
+
+# Verifies that the email does not exist yet
 def VerifyNew(email):
-
-
-    return True # True or False
-
+    global connection, cursor
+    CheckEmail = '''
+		SELECT name
+		FROM users
+		WHERE email = :email;
+        	'''
+    cursor.execute(CheckEmail, {"email":email});
+    Row = cursor.fetchone()
+    
+    # Email does not exist
+    if Row is None:
+        return True
+    return False
 
 # Verifies an existing users email and password
 def VerifyExisting(email, password):
-    return True # True or False
-
+    global connection, cursor
+    CheckEmail = '''
+		SELECT name
+		FROM users
+		WHERE email = :email;
+        	'''
+    cursor.execute(CheckEmail, {"email":email});
+    Row1 = cursor.fetchone()
+    # Email does not exist
+    if Row1 is None:
+        return False
+    
+    # Check the password!
+    else:
+        CheckPwd = '''
+		SELECT name
+		FROM users u
+		WHERE u.email = :email
+		AND u.pwd = :password;
+        	'''
+        cursor.execute(CheckPwd, {"email":email, "password":password});
+        Row2 = cursor.fetchone()
+        
+        # Incorrect password
+        if Row2 is None:
+            return False
+	# Correct Email & Password
+        else:
+            print("\nSigning in as " +  email + "...")
+            print("\nWelcome back " + Row2[0] + "!") 
+            return True
 
 # Adds an email and password for a new user
 def CheckAccount():
@@ -80,28 +136,29 @@ def CreateAccount():
         # Loop keeps asking for a new email until a valid one is provided
         while(True):
             print("\nEmail:")
-            usr = input()
+            usr = customIn()
 
             ######## TODO Check to see if the email is already in the database ########
 
-            if(False): # True if the email is in use.
-                print("\nThat email is already in use! Please use a different address.")
-            else:
+            if(VerifyNew(usr)): # Email does not exist, continue!
                 break
 
+            else:
+                print("\nThat email is already in use! Please use a different address.")
+
         print("\nPassword:")
-        pwd = input()
+        pwd = customIn()
 
         print("\nName:")
-        name = input()
+        name = customIn()
 
         print("\nCity:")
-        city = input()
+        city = customIn()
 
         # Loop keeps asking for a new gender until a valid one is provided
         while(True):
             print("\nGender (Male/Female/Other):")
-            gender = input()
+            gender = customIn()
 
             if(gender.lower() == "male" or gender.lower() == "m"):
                 gender = "M"
@@ -126,7 +183,7 @@ def CreateAccount():
         # Loop keeps asking until the account info has been verified
         while(True):
             print("\nIs this information correct? (yes/no):")
-            check = input()
+            check = customIn()
 
             if(check.lower() == "yes" or check.lower() == "y"):
                 ReadyToSignUp = True
@@ -153,7 +210,7 @@ def CreateAccount():
 
 # Redirect to account creation or signing in
 def checkSignInCmd():
-    command = input()
+    command = customIn()
 
     # User has an account and wants to log in
     if(command.lower() == "login" or command.lower() == "l"):
