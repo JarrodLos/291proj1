@@ -3,7 +3,7 @@ import time
 import hashlib
 import os
 import sys
-
+currUser = ""
 # Kills the program and starts it up again automatically
 def restartProgram():
     connection.commit()
@@ -30,7 +30,7 @@ def connect(path):
 # Greeting
 def init():
     global currUsr
-    currUser = ""
+    
 
     print("\n\nWelcome to NorthSaskatchewan (not afilliated with Amazon)")
     print('Type ".logout" at any time to be taken back to the sign in screen.')
@@ -84,10 +84,15 @@ def VerifyExisting(email, password):
 		SELECT name
 		FROM users u
 		WHERE u.email = :email
-		AND u.pwd = :password;
+		AND u.pwd LIKE :password;
         	'''
+        #cursor.execute(' PRAGMA case_sensitive_like=true; ')
+        #connection.commit()
         cursor.execute(CheckPwd, {"email":email, "password":password});
+        
         Row2 = cursor.fetchone()
+        #cursor.execute(' PRAGMA case_sensitive_like=true; ')
+        #connection.commit()
 
         # Incorrect password
         if Row2 is None:
@@ -233,7 +238,6 @@ def checkSignInCmd():
         print("Input not recognized, please try again")
         return False
 
-
 def printActiveListings(user):
 
     # searchData = '''
@@ -269,15 +273,128 @@ def printActiveListings(user):
                 maxBidResPrice = allSearchResults[result][2]
 
             print(str(result) + ": " + allSearchResults[result][0] + " | " + str(maxBidResPrice) + " | " + str(allSearchResults[result][4]))
+            
+def createReview(rating, text, pid):
+    global connection, cursor, currUser
+    # Get the most recent review id (rid)
+    newRID = '''
+		SELECT MAX(rid)
+		FROM previews;
+        	'''
+    cursor.execute(newRID)
+    Row = cursor.fetchone()
+    rid = Row[0] + 1 # Max + 1
+    
+    # Create the new review
+    newReview = '''
+		INSERT INTO previews(rid, pid, reviewer, rating, rtext, rdate)
+		VALUES(:rid, :pid, :reviewer, :rating, :rtext, DATETIME('now'));
+        	'''
+    cursor.execute(newReview, {"rid":rid, "pid":pid, "reviewer":currUser, "rating":rating, "rtext":text})
+    connection.commit()
 
+def listReviews(pid):
+    global connection, cursor
+    # Get all the product reviews of PID
+    retrieveReviews = '''
+		SELECT rtext
+		FROM previews
+		WHERE pid = :pid;
+        	'''
+    cursor.execute(retrieveReviews, {"pid":pid})
+    Row = cursor.fetchall()
+    for i in range(0, len(Row)):
+        print("Review #" + str(i + 1) + " " + Row[i][0])
 
-def listProducts():
+def listSales(pid):
+    global connection, cursor
+    # Get all the product reviews of PID
+    retrieveSales = '''
+		SELECT rtext
+		FROM sales s
+		WHERE s.edate > DATETIME('now')
+		ORDER BY (s.edate - DATETIME('now') ASC;
+        	'''
+    cursor.execute(retrieveReviews, {"pid":pid})
+    Row = cursor.fetchall()
+    for i in range(0, len(Row)):
+        print("Review #" + str(i + 1) + " " + Row[i][0])
+
+def listProducts(): # 1
+    global connection, cursor, currUser
     print("\nRun the List Products")
+    activeSales = '''
+		SELECT DISTINCT p.pid, p.descr, COUNT(r.rating), AVG(r.rating), COUNT(s.sid)
+		FROM products p,previews r, sales s
+		WHERE s.edate > DATETIME('now')
+		AND s.pid = p.pid
+		AND s.pid = r.pid
+		AND p.pid = r.pid
+		ORDER BY COUNT(s.sid) DESC;
+        	'''
 
-def postSale():
+    cursor.execute(activeSales);
+        
+    Row = cursor.fetchall()
+    
+    print("Index | PID |    Desc.    | R# |  AR  | #S")
+    for i in range(0, len(Row)):
+        print("  " + str(i) + "   | " + Row[i][0] + " | " + Row[i][1] + " | " + str(Row[i][2]) + "  |  " + str(Row[i][3]) + " | " + str(Row[i][4]))
+    print("\nNOTE: R#: Number of ratings, AR: Avg Rating, #S: # of active sales!\n")
+    print("Please enter the products index of interest")
+    print("To go back to the main menu, enter '.back'\n")
+    
+    # Listen for user commands for the list of Products
+    index = customIn()
+    #while not (i > int(index)):
+            #print("Please enter a valid product index!")
+            #cmd = ""
+            #cmd = customIn()
+
+    if index.lower() == ".back":
+        return
+    else:
+        print("\nTo write a review: 'a'")
+        print("To list all reviews: 'b'")
+        print("To list all active sales: 'c'\n")
+        
+        cmd = customIn()
+        if cmd.lower() == "a": # Create a rating (Needs char limit)
+            print("Creating a review for the selected product: " + Row[index][0])
+            print("\nPlease enter your rating (1-5): ")
+            rating = customIn()
+            while (0 > int(rating)) or (int(rating) > 6):
+                print("Please enter a rating between 1-5")
+                rating = customIn()
+            print("\nPlease enter your text (1-20 characters):\n")
+            text = customIn()
+            selectedPid = Row[int(index)][0]
+            createReview(rating, text, selectedPid)
+            print("Thank-you for your review!\n")
+            return
+        
+        elif cmd.lower() == "b": # List all reviews
+            print("\nListing all reviews for the selected product: " + Row[int(index)][0])
+            selectedPid = Row[int(index)][0]
+            listReviews(selectedPid)
+        
+        elif cmd.lower() == "c": # NOT DONE
+            print("\nListing all active sales for the selected product: " + Row[int(index)][0])
+            selectedPid = Row[int(index)][0]
+            listSales(selectedPid)
+
+        elif cmd.lower() == ".back":
+            return
+
+        else:
+            print("That is an incorrect entry, please try again or enter 'menu' to go back to the main menu")
+            return
+        
+
+def postSale(): # 2
     print("\nRun the Post a Sale")
 
-def searchSale():
+def searchSale(): # 3
     print("\nRun the Search Sales")
 
 def searchUser(): # NOT DONE
@@ -378,9 +495,7 @@ def searchUser(): # NOT DONE
 
             break # We are done with searching, break out to main menu.
 
-
-
-def followUp():
+def followUp(): # 5
     print("\nRun the Follow Up")
 
 
@@ -393,6 +508,7 @@ def mainMenu():
     print("3: Search Sales")
     print("4: Search Users")
     print("5: 1-2 Follow-Up\n")
+
 
     selection = customIn("(1-5): ")
 
