@@ -8,6 +8,7 @@ import sys
 def restartProgram():
     connection.commit()
     connection.close()
+
     python = sys.executable
     os.execl(python, python, * sys.argv)
 
@@ -32,17 +33,17 @@ def init():
     currUser = ""
 
     print("\n\nWelcome to NorthSaskatchewan (not afilliated with Amazon)")
-    print('Type "logout" at any time to be taken back to the sign in screen.')
-    print('Type "quit" at any time to quit NorthSaskatchewan')
+    print('Type ".logout" at any time to be taken back to the sign in screen.')
+    print('Type ".quit" at any time to quit NorthSaskatchewan')
     print('\nTo login, type "login"\nTo create a new account, type "signup"')
 
 # Our implementation of the input() function so that we can exit/logout at any time
-def customIn():
-    myInput = input()
+def customIn(prompt = ""):
+    myInput = input(prompt)
 
-    if(myInput == "quit"):
+    if(myInput == ".quit"):
         exit()
-    elif(myInput == "logout"):
+    elif(myInput == ".logout"):
         restartProgram()
     else:
         return myInput
@@ -57,7 +58,7 @@ def VerifyNew(email):
         	'''
     cursor.execute(CheckEmail, {"email":email});
     Row = cursor.fetchone()
-    
+
     # Email does not exist
     if Row is None:
         return True
@@ -76,7 +77,7 @@ def VerifyExisting(email, password):
     # Email does not exist
     if Row1 is None:
         return False
-    
+
     # Check the password!
     else:
         CheckPwd = '''
@@ -87,16 +88,16 @@ def VerifyExisting(email, password):
         	'''
         cursor.execute(CheckPwd, {"email":email, "password":password});
         Row2 = cursor.fetchone()
-        
+
         # Incorrect password
         if Row2 is None:
             return False
 	# Correct Email & Password
         else:
-            print("\nSigning in as " +  email + "...")
-            print("\nWelcome back " + Row2[0] + "!") 
+            print("\nAccount Found!")
+            print("Signing in as " +  email + "...")
+            print("Welcome back " + Row2[0] + "!")
             return True
-
 
 # Adds an email and password for a new user
 def CheckAccount():
@@ -107,7 +108,6 @@ def CheckAccount():
     pwd = input('\nPassword: ').lower()
 
     if VerifyExisting(usr,pwd):
-        print("\nSign in successful!")
 
         # Set the current user
         currUser = usr
@@ -212,8 +212,8 @@ def CreateAccount():
 		INSERT INTO users(email, name, pwd, city, gender)
 		VALUES(:email, :name, :pwd, :city, :gender);
         	'''
-    # cursor.execute(newUser, {"email":usr, "name":name, "pwd":pwd, "city":city, "gender":gender})
-    # connection.commit()
+    cursor.execute(newUser, {"email":usr, "name":name, "pwd":pwd, "city":city, "gender":gender})
+    connection.commit()
     return True
 
 # Redirect to account creation or signing in
@@ -233,6 +233,44 @@ def checkSignInCmd():
         print("Input not recognized, please try again")
         return False
 
+
+def printActiveListings(user):
+
+    # searchData = '''
+    # SELECT s.descr, count(bid), max(amount), s.rprice, cast(julianday(s.edate)-julianday('now') as int)
+    # FROM sales s left outer join bids b using(sid), users u
+    # WHERE s.edate > datetime('now')
+    # AND s.lister = u.email
+    # AND u.email = ?
+    # ORDER BY s.edate desc;
+    # '''
+
+    searchData = '''
+    SELECT s.descr, count(bid), max(amount), s.rprice, cast(julianday(s.edate)-julianday('now') as int)
+    FROM sales s, bids b, users u
+    WHERE s.edate > datetime('now')
+    AND s.lister = u.email
+    AND u.email = ?
+    ORDER BY s.edate desc;
+    '''
+
+    cursor.execute(searchData, (user,));
+    allSearchResults = cursor.fetchall()
+
+    if(len(allSearchResults) == 0):
+        print("No active listings.")
+
+    else:
+        print("\nIndex: Description | Max Bid / Res Price | Time Remaining")
+        for result in range(0, len(allSearchResults)):
+            if(allSearchResults[result][1] == 0):
+                maxBidResPrice = allSearchResults[result][3]
+            else:
+                maxBidResPrice = allSearchResults[result][2]
+
+            print(str(result) + ": " + allSearchResults[result][0] + " | " + str(maxBidResPrice) + " | " + str(allSearchResults[result][4]))
+
+
 def listProducts():
     print("\nRun the List Products")
 
@@ -242,8 +280,105 @@ def postSale():
 def searchSale():
     print("\nRun the Search Sales")
 
-def searchUser():
-    print("\nRun the Search Users")
+def searchUser(): # NOT DONE
+    print('\nSearch Users - Type ".back" to return to Main Menu.')
+    backFlag = False # Is set to true if we are breaking out of the program
+
+    allSearchResults = None
+
+    while(True):
+        search = customIn("\nSearch: ")
+
+        # Handle a .back request
+        if(search == ".back"):
+            break
+
+        searchData = '''
+        SELECT email, name, city
+        FROM users
+        WHERE email LIKE ?
+        OR name LIKE ?
+        OR city LIKE ?;
+        '''
+
+        cursor.execute(searchData, ("%" + search + "%", "%" + search + "%", "%" + search + "%"));
+        allSearchResults = cursor.fetchall()
+
+        if(len(allSearchResults) == 0):
+            print("No results found. Please try a simpler search.")
+
+        else:
+            print("\nIndex: Email   |   Name   |   City")
+            for result in range(0, len(allSearchResults)):
+                print(str(result) + ": " + allSearchResults[result][0] + " | " + allSearchResults[result][1] + " | " + allSearchResults[result][2])
+
+
+            # While loop for error checking
+            selection = ""
+            while(True):
+                selection = customIn("\nSelect a user (0-" + str(len(allSearchResults) - 1) +"): ")
+
+                # Handle a .back request
+                if(selection == ".back"):
+                    backFlag = True
+                    break
+
+                elif(int(selection) < len(allSearchResults) and int(selection) >= 0):
+                    break
+
+                else:
+                    print("Invalid entry, please enter a number between 0 and " + str(len(allSearchResults) - 1) + ".")
+
+            # Handle a .back request
+            if(backFlag):
+                break
+
+
+            fetchUser = '''
+    		SELECT *
+    		FROM users
+    		WHERE email = ?;
+        	'''
+
+            cursor.execute(fetchUser, (allSearchResults[int(selection)][0],));
+            selectedUser = cursor.fetchone()
+
+            print("\nYou have selected " + selectedUser[1] + ".")
+            print("1: Write a review for " + selectedUser[1])
+            print("2: View " + selectedUser[1] + "'s active listings")
+            print("3: View other's reviews of " + selectedUser[1])
+
+            while(True):
+                selection = customIn("\n(1-3): ")
+
+                # Handle a .back request
+                if(selection == ".back"):
+                    backFlag = True
+                    break
+
+                elif(int(selection) > 0 and int(selection) <= 3):
+                    break
+
+                else:
+                    print("\nInput not valid, please enter a number between 1 and 3.")
+
+            # Handle a .back request
+            if(backFlag):
+                break
+
+            if(selection == "1"): # NOT DONE
+                print("Write Review")
+            elif(selection == "2"): # NOT DONE (In progress)
+                print("\n" + selectedUser[1] + "'s Active listings")
+
+                printActiveListings(selectedUser[0])
+
+            else: # NOT DONE
+                print("View review")
+
+            break # We are done with searching, break out to main menu.
+
+
 
 def followUp():
     print("\nRun the Follow Up")
@@ -252,16 +387,14 @@ def followUp():
 # Main menu
 def mainMenu():
     print("\n--------------------------------")
-    print("\nMain Menu")
+    print('\nMain Menu - Type ".logout" to log out.')
     print("\n1: List Products")
     print("2: Post a Sale")
     print("3: Search Sales")
     print("4: Search Users")
     print("5: 1-2 Follow-Up\n")
 
-    print("(1-5): ")
-
-    selection = customIn().lower()
+    selection = customIn("(1-5): ")
 
     if(selection == "1"):
         print("\n--------------------------------")
@@ -284,7 +417,7 @@ def mainMenu():
         followUp()
 
     else:
-        print("\nInput not recognized, please try again")
+        print("\nInput not recognized, please enter a number between 1 and 5.")
 
     return True
 
@@ -303,6 +436,7 @@ if (__name__ == "__main__"):
     while(not checkSignInCmd()):
         pass
 
+    connection.commit()
 
     while(mainMenu()):
         pass
