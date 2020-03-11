@@ -21,6 +21,7 @@ def connect(path):
     global connection, cursor
     connection = None
     cursor = None
+
     connection = sqlite3.connect(path)
     cursor = connection.cursor()
     cursor.execute(' PRAGMA forteign_keys=ON; ')
@@ -86,7 +87,7 @@ def VerifyExisting(email, password):
         #cursor.execute(' PRAGMA case_sensitive_like=true; ')
         #connection.commit()
         cursor.execute(CheckPwd, {"email":email, "password":password});
-        
+
         Row2 = cursor.fetchone()
         #cursor.execute(' PRAGMA case_sensitive_like=true; ')
         #connection.commit()
@@ -104,6 +105,7 @@ def VerifyExisting(email, password):
 # Adds an email and password for a new user
 def CheckAccount():
     global connection, cursor, currUser
+
     print("\nLogin to an Existing Account")
 
     usr = input('\nEmail: ').lower()
@@ -236,42 +238,252 @@ def checkSignInCmd():
         print("Input not recognized, please try again")
         return False
 
-def printActiveListings(user):
 
-    # searchData = '''
-    # SELECT s.descr, count(bid), max(amount), s.rprice, cast(julianday(s.edate)-julianday('now') as int)
-    # FROM sales s left outer join bids b using(sid), users u
-    # WHERE s.edate > datetime('now')
-    # AND s.lister = u.email
-    # AND u.email = ?
-    # ORDER BY s.edate desc;
-    # '''
-
+def viewReviews(user):
     searchData = '''
-    SELECT s.descr, count(bid), max(amount), s.rprice, cast(julianday(s.edate)-julianday('now') as int)
-    FROM sales s, bids b, users u
-    WHERE s.edate > datetime('now')
-    AND s.lister = u.email
-    AND u.email = ?
-    ORDER BY s.edate desc;
+    SELECT reviewer, rating, rtext, rdate
+    FROM reviews
+    WHERE reviewee = ?;
     '''
 
     cursor.execute(searchData, (user,));
     allSearchResults = cursor.fetchall()
 
     if(len(allSearchResults) == 0):
-        print("No active listings.")
+        print(user + " has no reviews.")
 
     else:
-        print("\nIndex: Description | Max Bid / Res Price | Time Remaining")
+        print("\nIndex: Reviewer | Rating | Comments | Date")
         for result in range(0, len(allSearchResults)):
-            if(allSearchResults[result][1] == 0):
+            if(allSearchResults[result][2] == ""):
+                comment = "(No Comment)"
+            else:
+                comment = allSearchResults[result][2]
+
+            print(str(result) + ": " + allSearchResults[result][0] + " | " + str(allSearchResults[result][1]) + " | " + comment + " | " + str(allSearchResults[result][2]) + str(allSearchResults[result][3]))
+
+
+def showActiveListingsListProduct(product):
+
+    searchData = '''
+    SELECT s.descr, count(bid), max(amount), s.rprice,
+            CAST((strftime('%s',s.edate) - strftime('%s', 'now')) /86400 AS TEXT),
+            CAST(((strftime('%s', s.edate) - strftime('%s', 'now')) % (86400)) / (3600) AS TEXT),
+            CAST((((strftime('%s', s.edate) - strftime('%s', 'now')) % (86400)) % (3600)) / 60 AS TEXT),
+            p.pid
+    FROM sales s left outer join bids b using (sid), products p
+    WHERE s.edate > datetime('now')
+    AND s.pid = p.pid
+    AND p.pid = ?
+    GROUP BY s.sid
+    ORDER BY s.edate;
+    '''
+
+    cursor.execute(searchData, (product,));
+    allSearchResults = cursor.fetchall()
+
+    if(len(allSearchResults) == 0):
+        print("No active listings of this product.")
+
+    else:
+        print("\nIndex: Description | Max Bid / Res Price | Days/Hours/Minutes Remaining")
+        for result in range(0, len(allSearchResults)):
+            if(allSearchResults[result][2] == None):
                 maxBidResPrice = allSearchResults[result][3]
             else:
                 maxBidResPrice = allSearchResults[result][2]
 
-            print(str(result) + ": " + allSearchResults[result][0] + " | " + str(maxBidResPrice) + " | " + str(allSearchResults[result][4]))
-            
+            print(str(result) + ": " + allSearchResults[result][0] + " | " + str(maxBidResPrice) + " | " + str(allSearchResults[result][4]) + "days, " + str(allSearchResults[result][5]) + "hours, " + str(allSearchResults[result][6]) + "minutes")
+
+
+    # Now continue on to show more information
+    # While loop for error checking
+    selection = ""
+    while(True):
+        selection = customIn("\nSelect a sale (0-" + str(len(allSearchResults) - 1) +"): ")
+
+        if(int(selection) < len(allSearchResults) and int(selection) >= 0):
+            break
+
+        else:
+            print("Invalid entry, please enter a number between 0 and " + str(len(allSearchResults) - 1) + ".")
+
+    # Where I left off, may need some testing
+
+    fetchSale = '''
+    SELECT s.lister, count(r.rating), avg(r.rating), s.descr, s.edate, s.cond, max(amount), s.rprice, p.descr, count(pr.rating), avg(pr.rating)
+    FROM (sales s left outer join bids b using (sid)) left outer join products p using (pid), reviews r, previews pr
+    WHERE p.pid = ?
+    AND s.lister = r.reviewee
+    AND p.pid = pr.pid
+    GROUP BY s.lister;
+    '''
+
+    cursor.execute(fetchSale, (allSearchResults[int(selection)][7],));
+    selectedSale = cursor.fetchone()
+
+    print("\nLister's Email: " + selectedSale[0])
+    print("Lister's Raings: " + str(selectedSale[1]))
+    print("Lister's Average Rating: " + str(selectedSale[2]))
+    print("Sale's Description: " + selectedSale[3])
+    print("Sale's End Date: " + str(selectedSale[4]))
+    print("Sale's End Time: " + "-----TODO----")
+    print("Product's Contioion: " + str(selectedSale[5]))
+
+    if(selectedSale[6] == None):
+        print("Max Bid: " + str(selectedSale[7]))
+    else:
+        print("Reserved Price: " + str(selectedSale[6]) + " (This listing has no bids!)")
+
+    if(selectedSale[8] != None):
+        print("Product's Description: " + selectedSale[8])
+
+    if(selectedSale[9] != None):
+        print("Product's Raings: " + str(selectedSale[9]))
+        print("Product's Average Rating: " + str(selectedSale[10]))
+    else:
+        print("This product has not yet been reviewed.")
+
+    # More information shown! Now show what you can do with the sale
+    print("\n1: Place a bid on " + selectedSale[3])
+    print("2: View " + selectedSale[0] + "'s other active listings")
+    print("3: View other's reviews of " + selectedSale[0])
+
+    while(True):
+        selection = customIn("\n(1-3): ")
+
+        # Handle a .back request
+        if(selection == ".back"):
+            backFlag = True
+            break
+
+        elif(int(selection) > 0 and int(selection) <= 3):
+            break
+
+        else:
+            print("Input not valid, please enter a number between 1 and 3.")
+
+    if(selection == "1"): # TODO
+        print("#####################Place Bid#####################")
+    elif(selection == "2"):
+        # Call this function again
+        print("\n" + selectedSale[0] + "'s active listings")
+
+        showActiveListings(selectedSale[0])
+    else:
+        viewReviews(selectedSale[0])
+
+
+def showActiveListings(user):
+
+    searchData = '''
+    SELECT s.descr, count(bid), max(amount), s.rprice,
+            CAST((strftime('%s',s.edate) - strftime('%s', 'now')) /86400 AS TEXT),
+            CAST(((strftime('%s', s.edate) - strftime('%s', 'now')) % (86400)) / (3600) AS TEXT),
+            CAST((((strftime('%s', s.edate) - strftime('%s', 'now')) % (86400)) % (3600)) / 60 AS TEXT),
+            s.sid
+    FROM sales s left outer join bids b using (sid), users u
+    WHERE s.edate > datetime('now')
+    AND s.lister = u.email
+    AND u.email = ?
+    GROUP BY s.sid
+    ORDER BY s.edate;
+    '''
+
+    cursor.execute(searchData, (user,));
+    allSearchResults = cursor.fetchall()
+
+    if(len(allSearchResults) == 0):
+        print("This user has no active listings.")
+
+    else:
+        print("\nIndex: Description | Max Bid / Res Price | Days/Hours/Minutes Remaining")
+        for result in range(0, len(allSearchResults)):
+            if(allSearchResults[result][2] == None):
+                maxBidResPrice = allSearchResults[result][3]
+            else:
+                maxBidResPrice = allSearchResults[result][2]
+                
+            print(str(result) + ": " + allSearchResults[result][0] + " | " + str(maxBidResPrice) + " | " + str(allSearchResults[result][4]) + "days, " + str(allSearchResults[result][5]) + "hours, " + str(allSearchResults[result][6]) + "minutes")
+
+
+        # Now continue on to show more information
+        # While loop for error checking
+        selection = ""
+        while(True):
+            selection = customIn("\nSelect a sale (0-" + str(len(allSearchResults) - 1) +"): ")
+
+            if(int(selection) < len(allSearchResults) and int(selection) >= 0):
+                break
+
+            else:
+                print("Invalid entry, please enter a number between 0 and " + str(len(allSearchResults) - 1) + ".")
+
+        fetchSale = '''
+        SELECT s.lister, count(r.rating), avg(r.rating), s.descr, s.edate, s.cond, max(amount), s.rprice, p.descr, count(pr.rating), avg(pr.rating)
+        FROM (sales s left outer join bids b using (sid)) left outer join products p using (pid), reviews r, previews pr
+        WHERE s.sid = ?
+        AND s.lister = r.reviewee
+        AND p.pid = pr.pid
+        GROUP BY s.lister;
+        '''
+
+        cursor.execute(fetchSale, (allSearchResults[int(selection)][7],));
+        selectedSale = cursor.fetchone()
+
+        print("\nLister's Email: " + selectedSale[0])
+        print("Lister's Raings: " + str(selectedSale[1]))
+        print("Lister's Average Rating: " + str(selectedSale[2]))
+        print("Sale's Description: " + selectedSale[3])
+        print("Sale's End Date: " + str(selectedSale[4]))
+        print("Sale's End Time: " + "-----TODO----")
+        print("Product's Contioion: " + str(selectedSale[5]))
+
+        if(selectedSale[6] == None):
+            print("Max Bid: " + str(selectedSale[7]))
+        else:
+            print("Reserved Price: " + str(selectedSale[6]) + " (This listing has no bids!)")
+
+        if(selectedSale[8] != None):
+            print("Product's Description: " + selectedSale[8])
+
+        if(selectedSale[9] != None):
+            print("Product's Raings: " + str(selectedSale[9]))
+            print("Product's Average Rating: " + str(selectedSale[10]))
+        else:
+            print("This product has not yet been reviewed.")
+
+        # More information shown! Now show what you can do with the sale
+        print("\n1: Place a bid on " + selectedSale[3])
+        print("2: View " + selectedSale[0] + "'s other active listings")
+        print("3: View other's reviews of " + selectedSale[0])
+
+        while(True):
+            selection = customIn("\n(1-3): ")
+
+            # Handle a .back request
+            if(selection == ".back"):
+                backFlag = True
+                break
+
+            elif(int(selection) > 0 and int(selection) <= 3):
+                break
+
+            else:
+                print("Input not valid, please enter a number between 1 and 3.")
+
+        if(selection == "1"): # TODO
+            print("#####################Place Bid#####################")
+        elif(selection == "2"):
+            # Call this function again
+            print("\n" + selectedSale[0] + "'s active listings")
+
+            showActiveListings(selectedSale[0])
+        else:
+            viewReviews(selectedSale[0])
+
+
+
 def createProdReview(rating, text, pid):
     global connection, cursor, currUser
     # Get the most recent review id (rid)
@@ -282,7 +494,7 @@ def createProdReview(rating, text, pid):
     cursor.execute(newRID)
     Row = cursor.fetchone()
     rid = Row[0] + 1 # Max + 1
-    
+
     # Create the new review
     newReview = '''
 		INSERT INTO previews(rid, pid, reviewer, rating, rtext, rdate)
@@ -291,25 +503,16 @@ def createProdReview(rating, text, pid):
     cursor.execute(newReview, {"rid":rid, "pid":pid, "reviewer":currUser, "rating":rating, "rtext":text})
     connection.commit()
 
-def createUserReview(rating, text, reviewee):
+def createSellerReview(rating, text, email):
     global connection, cursor, currUser
-    # Get the most recent review id (rid)
-    newRID = '''
-		SELECT MAX(rid)
-		FROM previews;
-        	'''
-    cursor.execute(newRID)
-    Row = cursor.fetchone()
-    rid = Row[0] + 1 # Max + 1
-    
+
     # Create the new review
     newReview = '''
 		INSERT INTO reviews(reviewer, reviewee, rating, rtext, rdate)
-		VALUES(:reviewer, :reviewee, :rating, :rtext, DATETIME('now'));
+		VALUES(?, ?, ?, ?, DATETIME('now'));
         	'''
-    cursor.execute(newReview, {"reviewer":currUser, "reviewee":reviewee, "rating":rating, "rtext":text})
+    cursor.execute(newReview, (currUser, email, rating, text))
     connection.commit()
-
 
 def listReviews(pid):
     global connection, cursor
@@ -324,7 +527,7 @@ def listReviews(pid):
     for i in range(0, len(Row)):
         print("Review #" + str(i + 1) + " " + Row[i][0])
 
-def listSales(pid):
+def listSales(pid): # Possibly depreciated
     global connection, cursor
     # Get all the product reviews of PID
     retrieveSales = '''
@@ -349,19 +552,19 @@ def listProducts(): # 1
 		AND s.pid = r.pid
 		AND p.pid = r.pid
 		ORDER BY COUNT(s.sid) DESC;
-        	'''
+        '''
 
     cursor.execute(activeSales);
-        
+
     Row = cursor.fetchall()
-    
+
     print("Index | PID |    Desc.    | R# |  AR  | #S")
     for i in range(0, len(Row)):
         print("  " + str(i) + "   | " + Row[i][0] + " | " + Row[i][1] + " | " + str(Row[i][2]) + "  |  " + str(Row[i][3]) + " | " + str(Row[i][4]))
     print("\nNOTE: R#: Number of ratings, AR: Avg Rating, #S: # of active sales!\n")
     print("Please enter the products index of interest")
     print("To go back to the main menu, enter '.back'\n")
-    
+
     # Listen for user commands for the list of Products
     index = customIn()
     #while not (i > int(index)):
@@ -375,7 +578,7 @@ def listProducts(): # 1
         print("\nTo write a review: 'a'")
         print("To list all reviews: 'b'")
         print("To list all active sales: 'c'\n")
-        
+
         cmd = customIn()
         if cmd.lower() == "a": # Create a rating (Needs char limit)
             print("Creating a review for the selected product: " + Row[int(index)][0])
@@ -389,17 +592,19 @@ def listProducts(): # 1
             selectedPid = Row[int(index)][0]
             createProdReview(rating, text, selectedPid)
             print("Thank-you for your review!\n")
+
             return
-        
+
         elif cmd.lower() == "b": # List all reviews
             print("\nListing all reviews for the selected product: " + Row[int(index)][0])
             selectedPid = Row[int(index)][0]
             listReviews(selectedPid)
-        
+
         elif cmd.lower() == "c": # NOT DONE
             print("\nListing all active sales for the selected product: " + Row[int(index)][0])
             selectedPid = Row[int(index)][0]
-            listSales(selectedPid)
+            showActiveListingsListProduct(selectedPid)
+            # listSales(selectedPid)
 
         elif cmd.lower() == ".back":
             return
@@ -407,7 +612,6 @@ def listProducts(): # 1
         else:
             print("That is an incorrect entry, please try again or enter 'menu' to go back to the main menu")
             return
-        
 
 def postSale(): # 2
     print("\nRun the Post a Sale")
@@ -415,7 +619,8 @@ def postSale(): # 2
 def searchSale(): # 3
     print("\nRun the Search Sales")
 
-def searchUser(): # NOT DONE
+def searchUser(): # 4 - IN PROGRESS
+
     print('\nSearch Users - Type ".back" to return to Main Menu.')
     backFlag = False # Is set to true if we are breaking out of the program
 
@@ -501,6 +706,84 @@ def searchUser(): # NOT DONE
             if(backFlag):
                 break
 
+            if(selection == "1"): # IN PROGHRESS
+                # print("#####################Write Review#####################")
+                print("Creating a review for " + selectedUser[1])
+                print("\nPlease enter your rating")
+                rating = customIn("\n(1-5): ")
+                while (0 > int(rating)) or (int(rating) > 6):
+                    print("Please enter a rating between 1-5")
+                    rating = customIn("\n(1-5): ")
+                print("\nPlease enter a comment")
+                text = customIn("\n(1-20 characters): ")
+
+                createSellerReview(rating, text, selectedUser[0])
+                print("\nThank you for your review!")
+
+            elif(selection == "2"):
+                print("\n" + selectedUser[1] + "'s active listings")
+
+                showActiveListings(selectedUser[0])
+
+            else: # NOT DONE
+                viewReviews(selectedUser[0])
+
+            # We are done with searching, break out to main menu.
+            break
+
+            # While loop for error checking
+            selection = ""
+            while(True):
+                selection = customIn("\nSelect a user (0-" + str(len(allSearchResults) - 1) +"): ")
+
+                # Handle a .back request
+                if(selection == ".back"):
+                    backFlag = True
+                    break
+
+                elif(int(selection) < len(allSearchResults) and int(selection) >= 0):
+                    break
+
+                else:
+                    print("Invalid entry, please enter a number between 0 and " + str(len(allSearchResults) - 1) + ".")
+
+            # Handle a .back request
+            if(backFlag):
+                break
+
+
+            fetchUser = '''
+    		SELECT *
+    		FROM users
+    		WHERE email = ?;
+        	'''
+
+            cursor.execute(fetchUser, (allSearchResults[int(selection)][0],));
+            selectedUser = cursor.fetchone()
+
+            print("\nYou have selected " + selectedUser[1] + ".")
+            print("1: Write a review for " + selectedUser[1])
+            print("2: View " + selectedUser[1] + "'s active listings")
+            print("3: View other's reviews of " + selectedUser[1])
+
+            while(True):
+                selection = customIn("\n(1-3): ")
+
+                # Handle a .back request
+                if(selection == ".back"):
+                    backFlag = True
+                    break
+
+                elif(int(selection) > 0 and int(selection) <= 3):
+                    break
+
+                else:
+                    print("\nInput not valid, please enter a number between 1 and 3.")
+
+            # Handle a .back request
+            if(backFlag):
+                break
+
             if(selection == "1"): # Write a user review
                 print("Creating a review for the selected user: " + selectedUser[1])
                 print("\nPlease enter your rating (1-5): ")
@@ -511,7 +794,7 @@ def searchUser(): # NOT DONE
                 print("\nPlease enter your text (1-20 characters):\n")
                 text = customIn()
                 email = selectedUser[0]
-                createUserReview(rating, text, email)
+                createSellerReview(rating, text, email)
                 print("Thank-you for your review!\n")
                 return
 
@@ -532,11 +815,9 @@ def mainMenu():
     print("\n1: List Products")
     print("2: Post a Sale")
     print("3: Search Sales")
-    print("4: Search Users")
-    print("5: 1-2 Follow-Up\n")
+    print("4: Search Users\n")
 
-
-    selection = customIn("(1-5): ")
+    selection = customIn("(1-4): ")
 
     if(selection == "1"):
         print("\n--------------------------------")
@@ -554,12 +835,8 @@ def mainMenu():
         print("\n--------------------------------")
         searchUser()
 
-    elif(selection == "5"):
-        print("\n--------------------------------")
-        followUp()
-
     else:
-        print("\nInput not recognized, please enter a number between 1 and 5.")
+        print("\nInput not recognized, please enter a number between 1 and 4.")
 
     return True
 
@@ -567,7 +844,6 @@ def mainMenu():
 if (__name__ == "__main__"):
     # Initialize and login
     global connection, cursor, currUser
-    
     currUser = None
     init()
     path = getPath()
