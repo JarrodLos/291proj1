@@ -241,6 +241,7 @@ def checkSignInCmd():
         print("Input not recognized, please try again")
         return False
 
+
 def viewReviews(user):
     searchData = '''
     SELECT reviewer, rating, rtext, rdate
@@ -485,8 +486,7 @@ def showActiveListings(user):
             viewReviews(selectedSale[0])
 
 
-
-def createReview(rating, text, pid):
+def createProdReview(rating, text, pid):
     global connection, cursor, currUser
     # Get the most recent review id (rid)
     newRID = '''
@@ -504,6 +504,7 @@ def createReview(rating, text, pid):
         	'''
     cursor.execute(newReview, {"rid":rid, "pid":pid, "reviewer":currUser, "rating":rating, "rtext":text})
     connection.commit()
+
 
 def createSellerReview(rating, text, email):
     global connection, cursor, currUser
@@ -524,6 +525,7 @@ def createSellerReview(rating, text, email):
     cursor.execute(newReview, (currUser, email, rating, text))
     connection.commit()
 
+
 def listReviews(pid):
     global connection, cursor
     # Get all the product reviews of PID
@@ -536,6 +538,7 @@ def listReviews(pid):
     Row = cursor.fetchall()
     for i in range(0, len(Row)):
         print("Review #" + str(i + 1) + " " + Row[i][0])
+
 
 def listSales(pid): # Possibly depreciated
     global connection, cursor
@@ -550,6 +553,7 @@ def listSales(pid): # Possibly depreciated
     Row = cursor.fetchall()
     for i in range(0, len(Row)):
         print("Review #" + str(i + 1) + " " + Row[i][0])
+
 
 def listProducts(): # 1
     global connection, cursor, currUser
@@ -600,7 +604,7 @@ def listProducts(): # 1
             print("\nPlease enter your text (1-20 characters):\n")
             text = customIn()
             selectedPid = Row[int(index)][0]
-            createReview(rating, text, selectedPid)
+            createProdReview(rating, text, selectedPid)
             print("\nThank you for your review!")
             return
 
@@ -621,6 +625,7 @@ def listProducts(): # 1
         else:
             print("That is an incorrect entry, please try again or enter 'menu' to go back to the main menu")
             return
+
 
 def postSale(): # 2
     print("\nRun the Post a Sale")
