@@ -402,7 +402,7 @@ def showActiveListings(user):
                 maxBidResPrice = allSearchResults[result][3]
             else:
                 maxBidResPrice = allSearchResults[result][2]
-                
+
             print(str(result) + ": " + allSearchResults[result][0] + " | " + str(maxBidResPrice) + " | " + str(allSearchResults[result][4]) + "days, " + str(allSearchResults[result][5]) + "hours, " + str(allSearchResults[result][6]) + "minutes")
 
 
@@ -482,7 +482,6 @@ def showActiveListings(user):
             viewReviews(selectedSale[0])
 
 
-
 def createProdReview(rating, text, pid):
     global connection, cursor, currUser
     # Get the most recent review id (rid)
@@ -501,6 +500,7 @@ def createProdReview(rating, text, pid):
         	'''
     cursor.execute(newReview, {"rid":rid, "pid":pid, "reviewer":currUser, "rating":rating, "rtext":text})
     connection.commit()
+
 
 def createSellerReview(rating, text, email):
     global connection, cursor, currUser
@@ -566,6 +566,7 @@ def listReviews(pid):
     for i in range(0, len(Row)):
         print("Review #" + str(i + 1) + " " + Row[i][0])
 
+
 def listSales(pid): # Possibly depreciated
     global connection, cursor
     # Get all the product reviews of PID
@@ -603,7 +604,6 @@ def getcurrentDate():
     for j in range(0, 3):
         currDate[3 + j] = int(timeP[j])
     return currDate
-
 
 def listProducts(): # 1
     global connection, cursor, currUser
@@ -676,6 +676,7 @@ def listProducts(): # 1
         else:
             print("That is an incorrect entry, please try again or enter 'menu' to go back to the main menu")
             return
+
 
 def postSale(): # 2
     print("\nCreating a new sale!")
