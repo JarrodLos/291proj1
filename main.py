@@ -237,7 +237,7 @@ def checkSignInCmd():
 
 # View all reviews of a provided user
 def viewReviews(user):
-    
+
     # Query to find data on a users reviews
     searchData = '''
     SELECT reviewer, rating, rtext, rdate
@@ -378,7 +378,7 @@ def showActiveListingsListProduct(product):
     '''
 
     cursor.execute(fetchSale, (allSearchResults[int(selection)][8],));
-    
+
     selectedSale = cursor.fetchone()
 
     print("\nLister's Email: " + selectedSale[0])
@@ -441,7 +441,7 @@ def showActiveListingsListProduct(product):
 
 # Lists all listings of a single seller (The user passed in)
 def showActiveListings(user):
-    
+
     # Query to show all active listings from a single user
     searchData = '''
     SELECT s.descr, count(bid), max(amount), s.rprice,
@@ -559,7 +559,7 @@ def showActiveListings(user):
             viewReviews(selectedSale[0])
 
 
-# Creates a product review given user input 
+# Creates a product review given user input
 def createProdReview(rating, text, pid):
     global connection, cursor, currUser
     # Get the most recent review id (rid)
@@ -603,14 +603,14 @@ def createSale(edate, descr, cond, rprice, pid):
     cursor.execute(allSids);
     allSidsFound = cursor.fetchall()
 
-    # Process the pulled data if any    
+    # Process the pulled data if any
     if(len(allSidsFound) == 0):
         sid = "S00"
     else:
         allSidsFoundStripped = [len(allSidsFound)]
         for sid in range(0, len(allSidsFound)):
             allSidsFoundStripped[0] = int(allSidsFound[sid][0].strip("S"))
-    
+
     # Format to the correct size of the id
     maxSid = str(max(allSidsFoundStripped) + 1)
     if len(maxSid) == 1:
@@ -691,15 +691,15 @@ def getcurrentDate():
 def listProducts():
     global connection, cursor, currUser
     print("\nRun the List Products")
-    
+
     # There is a problem with the query, decided to finish the project instead of fix :(
     activeSales = '''
-		SELECT DISTINCT p.pid, p.descr, COUNT(r.rating), AVG(r.rating), COUNT(s.sid)
+		SELECT p.pid, p.descr, COUNT(r.rating), AVG(r.rating), COUNT(s.sid)
 		FROM products p,previews r, sales s
 		WHERE s.edate > DATETIME('now')
 		AND s.pid = p.pid
 		AND s.pid = r.pid
-		AND p.pid = r.pid
+		GROUP BY p.pid
 		ORDER BY COUNT(s.sid) DESC;
         '''
 
@@ -732,14 +732,14 @@ def listProducts():
             while (0 >= int(rating)) or (int(rating) >= 6):
                 print("\nPlease enter a rating between 1-5")
                 rating = customIn()
-            
+
             print("\nPlease enter your text (1-20 characters):")
             while True:
                 text = customIn()
                 if 20 >= len(text) > 0:
                     break
                 print("\nPlease enter a valid description between 1-20 chars!")
-            
+
             selectedPid = Row[int(index)][0]
             createProdReview(rating, text, selectedPid)
             print("\nThank-you for your review!")
@@ -807,7 +807,7 @@ def postSale():
                             if int(timeP[1]) > currDate[4]: # Minute > current Minute
                                 break
         print("\nPlease enter a valid date in the future in the following format: yyyy-MM-dd HH:mm:ss")
-    
+
     # Take the rest of the user input
     print("\nPlease enter the sales description: ") # desc
     while True:
