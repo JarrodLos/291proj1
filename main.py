@@ -375,11 +375,11 @@ def showActiveListingsListProduct(product):
     SELECT s.lister, count(r.rating), avg(r.rating), s.descr, s.edate, s.cond, max(amount), s.rprice, p.descr, count(pr.rating), avg(pr.rating), s.sid
     FROM (sales s left outer join bids b using (sid)) left outer join products p using (pid), reviews r, previews pr
     WHERE p.pid = ?
-    AND s.lister = r.reviewee
-    AND p.pid = pr.pid
     AND s.sid = b.sid
     GROUP BY s.sid;
     '''
+
+    #    AND s.lister = r.reviewee     AND p.pid = pr.pid
 
     cursor.execute(fetchSale, (allSearchResults[int(selection)][7],));
     selectedSale = cursor.fetchone()
@@ -491,10 +491,11 @@ def showActiveListings(user):
         SELECT s.lister, count(r.rating), avg(r.rating), s.descr, s.edate, s.cond, max(amount), s.rprice, p.descr, count(pr.rating), avg(pr.rating), s.sid
         FROM (sales s left outer join bids b using (sid)) left outer join products p using (pid), reviews r, previews pr
         WHERE s.sid = ?
-        AND s.lister = r.reviewee
-        AND p.pid = pr.pid
         GROUP BY s.lister;
         '''
+
+
+        #         AND s.lister = r.reviewee     AND p.pid = pr.pid
 
         cursor.execute(fetchSale, (allSearchResults[int(selection)][7],));
         selectedSale = cursor.fetchone()
@@ -506,11 +507,6 @@ def showActiveListings(user):
         print("Sale's End Date: " + str(selectedSale[4]))
         print("Sale's End Time: " + "##################### TODO #####################")
         print("Product's Contioion: " + str(selectedSale[5]))
-
-        # if(selectedSale[6] == None):
-        #     print("Max Bid: " + str(selectedSale[7]))
-        # else:
-        #     print("Reserved Price: $" + str(selectedSale[6]) + " (This listing has no bids!)")
 
         resPrice = 0
         maxBid = 0
@@ -595,6 +591,7 @@ def createSellerReview(rating, text, email):
     cursor.execute(newReview, (currUser, email, rating, text))
     connection.commit()
 
+
 def createSale(edate, descr, cond, rprice, pid):
     global connection, cursor, currUser
 
@@ -625,7 +622,7 @@ def createSale(edate, descr, cond, rprice, pid):
         pid = None
     if len(rprice) == 0:
         rprice = None
-    
+
     # Create the new sale
     newReview = '''
 		INSERT INTO sales(sid, lister, pid, edate, descr, cond, rprice)
@@ -634,6 +631,7 @@ def createSale(edate, descr, cond, rprice, pid):
     cursor.execute(newReview, {"sid":sid, "lister":currUser, "pid":pid, "edate":edate, "descr":descr, "cond":cond, "rprice":rprice})
     print("Your sale has been created! Please use sale ID " + sid + " to find your sale")
     connection.commit()
+
 
 def listReviews(pid):
     global connection, cursor
@@ -663,18 +661,19 @@ def listSales(pid): # Possibly depreciated
     for i in range(0, len(Row)):
         print("Review #" + str(i + 1) + " " + Row[i][0])
 
+
 def getcurrentDate():
     # Get the current date
 
     now = datetime.datetime.now()
     unparsedDate = now.strftime("%Y-%m-%d %H:%M:%S")
-    
+
     # Parse into the date and time respectively
-    Parse = unparsedDate.split(" ")       
+    Parse = unparsedDate.split(" ")
     # Parse and check the date (0th index - year | 1st index - month | 2nd index - day)
     date = Parse[0]
     dateP = date.split("-")
-            
+
     # Parse and check the time (0th index - hour | 1st index - min | 2nd index - sec)
     time = Parse[1]
     timeP = time.split(":")
@@ -686,6 +685,7 @@ def getcurrentDate():
     for j in range(0, 3):
         currDate[3 + j] = int(timeP[j])
     return currDate
+
 
 def listProducts(): # 1
     global connection, cursor, currUser
@@ -763,12 +763,12 @@ def listProducts(): # 1
 def postSale(): # 2
     print("\nCreating a new sale!")
     # sid (Gen), lister (currUser), pid (optional), edate * (Future), descr, cond, rprice(Optional)
-    
+
     print("\nPlease enter the sales end date: (yyyy-MM-dd HH:mm:ss)") # Date
-    
-    # Gets the current date to compare with the sales end date 
+
+    # Gets the current date to compare with the sales end date
     currDate = None
-    currDate = getcurrentDate()    
+    currDate = getcurrentDate()
 
     while True:
         edate = customIn() # edate[4/7] = "-", edate[10/16] = ":"
@@ -786,11 +786,11 @@ def postSale(): # 2
             if int(dateP[0]) > currDate[0]: # Year > current Year
                 break
             elif int(dateP[0]) == currDate[0]: # Year = current Year
-                
+
                 if int(dateP[1]) > currDate[1]: # Month > current Month
                     break
                 elif int(dateP[1]) == currDate[1]: # Month = current Month
-                    
+
                     if int(dateP[2]) > currDate[2]: # Day > current Day
                         break
                     elif int(dateP[2]) == currDate[2]: # Day = current Day
@@ -811,7 +811,7 @@ def postSale(): # 2
         print("\nPlease enter a valid description between 1-20 chars!")
 
     print("\nPlease enter the products condition: ") # cond
-    while True:    
+    while True:
         cond = customIn()
         if 10 >= len(cond) > 0:
             break
@@ -825,8 +825,165 @@ def postSale(): # 2
 
     createSale(edate, descr, cond, rprice, pid)
 
+
 def searchSale(): # 3
-    print("\nRun the Search Sales")
+    print('\nSearch Sales - Type ".back" to return to Main Menu.')
+    backFlag = False # Is set to true if we are breaking out of the program
+
+    allSearchResults = None
+
+    while(True):
+        search = customIn("\nSearch: ")
+
+        # Handle a .back request
+        if(search == ".back"):
+            backFlag = True
+            break
+
+        searchData = '''
+        SELECT sid
+        FROM sales s left outer join products p using (pid)
+        WHERE s.descr LIKE ?
+        OR p.descr LIKE ?;
+        '''
+
+        # gets all of the sids to search
+        cursor.execute(searchData, ("%" + search + "%", "%" + search + "%"));
+        allSearchResults = cursor.fetchall()
+
+
+        print("\nIndex: Description | Max Bid / Res Price | Days/Hours/Minutes Remaining")
+        index = 0
+        allSearchResultsNoneFiltered = []
+
+        for sid in allSearchResults:
+            searchData = '''
+            SELECT s.descr, count(bid), max(amount), s.rprice,
+                    CAST((strftime('%s',s.edate) - strftime('%s', 'now')) /86400 AS TEXT),
+                    CAST(((strftime('%s', s.edate) - strftime('%s', 'now')) % (86400)) / (3600) AS TEXT),
+                    CAST((((strftime('%s', s.edate) - strftime('%s', 'now')) % (86400)) % (3600)) / 60 AS TEXT),
+                    s.sid
+            FROM sales s left outer join bids b using (sid), users u
+            WHERE s.edate > datetime('now')
+            AND s.lister = u.email
+            AND s.sid = ?
+            GROUP BY s.sid
+            ORDER BY s.edate;
+            '''
+
+            cursor.execute(searchData, (sid[0],));
+            singleRow = cursor.fetchone()
+
+            if(singleRow != None):
+                if(singleRow[2] == None):
+                    maxBidResPrice = singleRow[3]
+                else:
+                    maxBidResPrice = singleRow[2]
+
+                print(str(index) + ": " + singleRow[0] + " | " + str(maxBidResPrice) + " | " + str(singleRow[4]) + "days, " + str(singleRow[5]) + "hours, " + str(singleRow[6]) + "minutes")
+
+                allSearchResultsNoneFiltered.append(singleRow)
+
+                index += 1
+
+
+        # While loop for error checking
+        selection = ""
+        while(True):
+            selection = customIn("\nSelect a sale (0-" + str(index - 1) +"): ")
+
+            # Handle a .back request
+            if(selection == ".back"):
+                backFlag = True
+                break
+
+            elif(int(selection) < index and int(selection) >= 0):
+                break
+
+            else:
+                print("Invalid entry, please enter a number between 0 and " + str(index - 1) + ".")
+
+        # Handle a .back request
+        if(backFlag):
+            break
+
+        fetchSale = '''
+        SELECT s.lister, count(r.rating), avg(r.rating), s.descr, s.edate, s.cond, max(amount), s.rprice, p.descr, count(pr.rating), avg(pr.rating), s.sid
+        FROM (sales s left outer join bids b using (sid)) left outer join products p using (pid), reviews r, previews pr
+        WHERE s.sid = ?
+        GROUP BY s.lister;
+        '''
+
+        cursor.execute(fetchSale, (str(allSearchResultsNoneFiltered[int(selection)][7]),));
+        selectedSale = cursor.fetchone()
+
+        print("\nLister's Email: " + selectedSale[0])
+        print("Lister's Raings: " + str(selectedSale[1]))
+        print("Lister's Average Rating: " + str(selectedSale[2]))
+        print("Sale's Description: " + selectedSale[3])
+        print("Sale's End Date: " + str(selectedSale[4]))
+        print("Sale's End Time: " + "##################### TODO #####################")
+        print("Product's Contioion: " + str(selectedSale[5]))
+
+        resPrice = 0
+        maxBid = 0
+
+        if(allSearchResultsNoneFiltered[int(selection)][2] == None):
+            resPrice = allSearchResultsNoneFiltered[int(selection)][3]
+            print("Reserved Price: $" + str(resPrice))
+        else:
+            maxBid = allSearchResultsNoneFiltered[int(selection)][2]
+            print("Max Bid: $" + str(maxBid))
+
+        if(selectedSale[8] != None):
+            print("Product's Description: " + selectedSale[8])
+
+        if(selectedSale[9] != None):
+            print("Product's Raings: " + str(selectedSale[9]))
+            print("Product's Average Rating: " + str(selectedSale[10]))
+        else:
+            print("This product has not yet been reviewed.")
+
+        # More information shown! Now show what you can do with the sale
+        print("\n1: Place a bid on " + selectedSale[3])
+        print("2: View " + selectedSale[0] + "'s other active listings")
+        print("3: View other's reviews of " + selectedSale[0])
+
+
+        selection = ""
+        while(True):
+            selection = customIn("\n(1-3): ")
+
+            # Handle a .back request
+            if(selection == ".back"):
+                backFlag = True
+                break
+
+            elif(int(selection) > 0 and int(selection) <= 3):
+                break
+
+            else:
+                print("Input not valid, please enter a number between 1 and 3.")
+
+        # Handle a .back request
+        if(backFlag):
+            break
+
+        if(selection == "1"):
+            # Recall, allSearchResults[int(selection)][7] is the sid that we used to
+            # pull more information about the sale. It will be the sid that we bid on
+            placeBid(selectedSale[11], selectedSale, resPrice, maxBid)
+
+        elif(selection == "2"):
+            # Call this function again
+            print("\n" + selectedSale[0] + "'s active listings")
+
+            showActiveListings(selectedSale[0])
+        else:
+            viewReviews(selectedSale[0])
+
+        break # We are done searching.
+
 
 def searchUser(): # 4 - IN PROGRESS
 
@@ -915,8 +1072,7 @@ def searchUser(): # 4 - IN PROGRESS
             if(backFlag):
                 break
 
-            if(selection == "1"): # IN PROGHRESS
-                # print("#####################Write Review#####################")
+            if(selection == "1"):
                 print("Creating a review for " + selectedUser[1])
                 print("\nPlease enter your rating")
                 rating = customIn("\n(1-5): ")
