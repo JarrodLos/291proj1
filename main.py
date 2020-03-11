@@ -8,7 +8,6 @@ import sys
 def restartProgram():
     connection.commit()
     connection.close()
-
     python = sys.executable
     os.execl(python, python, * sys.argv)
 
@@ -30,7 +29,6 @@ def connect(path):
 # Greeting
 def init():
     global currUsr
-
     currUser = ""
 
     print("\n\nWelcome to NorthSaskatchewan (not afilliated with Amazon)")
@@ -51,11 +49,54 @@ def customIn():
 
 # Verifies that the email does not exist yet
 def VerifyNew(email):
-    return True # True or False
+    global connection, cursor
+    CheckEmail = '''
+		SELECT name
+		FROM users
+		WHERE email = :email;
+        	'''
+    cursor.execute(CheckEmail, {"email":email});
+    Row = cursor.fetchone()
+    
+    # Email does not exist
+    if Row is None:
+        return True
+    return False
 
 # Verifies an existing users email and password
 def VerifyExisting(email, password):
-    return True # True or False
+    global connection, cursor
+    CheckEmail = '''
+		SELECT name
+		FROM users
+		WHERE email = :email;
+        	'''
+    cursor.execute(CheckEmail, {"email":email});
+    Row1 = cursor.fetchone()
+    # Email does not exist
+    if Row1 is None:
+        return False
+    
+    # Check the password!
+    else:
+        CheckPwd = '''
+		SELECT name
+		FROM users u
+		WHERE u.email = :email
+		AND u.pwd = :password;
+        	'''
+        cursor.execute(CheckPwd, {"email":email, "password":password});
+        Row2 = cursor.fetchone()
+        
+        # Incorrect password
+        if Row2 is None:
+            return False
+	# Correct Email & Password
+        else:
+            print("\nSigning in as " +  email + "...")
+            print("\nWelcome back " + Row2[0] + "!") 
+            return True
+
 
 # Adds an email and password for a new user
 def CheckAccount():
@@ -102,19 +143,21 @@ def CreateAccount():
 
             ######## TODO Check to see if the email is already in the database ########
 
-            if(False): # True if the email is in use.
-                print("\nThat email is already in use! Please use a different address.")
-            else:
+            if(VerifyNew(usr)): # Email does not exist, continue!
                 break
+
+            else:
+                print("\nThat email is already in use! Please use a different address.")
 
         print("\nPassword:")
         pwd = customIn()
 
         print("\nName:")
-        name = customIn().lower()
+        name = customIn()
 
         print("\nCity:")
-        city = customIn().lower()
+        city = customIn()
+
 
         # Loop keeps asking for a new gender until a valid one is provided
         while(True):
