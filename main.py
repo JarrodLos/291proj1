@@ -331,7 +331,7 @@ def showActiveListingsListProduct(product):
             CAST((strftime('%s',s.edate) - strftime('%s', 'now')) /86400 AS TEXT),
             CAST(((strftime('%s', s.edate) - strftime('%s', 'now')) % (86400)) / (3600) AS TEXT),
             CAST((((strftime('%s', s.edate) - strftime('%s', 'now')) % (86400)) % (3600)) / 60 AS TEXT),
-            p.pid, s.sid
+            s.pid, s.sid, CAST(((strftime('%s', s.edate)) % (86400)) / (3600) AS TEXT), CAST((((strftime('%s', s.edate)) % (86400)) % (3600)) / 60 AS TEXT)
     FROM sales s left outer join bids b using (sid), products p
     WHERE s.edate > datetime('now')
     AND s.pid = p.pid
@@ -369,19 +369,18 @@ def showActiveListingsListProduct(product):
         else:
             print("Invalid entry, please enter a number between 0 and " + str(len(allSearchResults) - 1) + ".")
 
-    # Where I left off, may need some testing
+
 
     fetchSale = '''
     SELECT s.lister, count(r.rating), avg(r.rating), s.descr, s.edate, s.cond, max(amount), s.rprice, p.descr, count(pr.rating), avg(pr.rating), s.sid
     FROM (sales s left outer join bids b using (sid)) left outer join products p using (pid), reviews r, previews pr
-    WHERE p.pid = ?
-    AND s.sid = b.sid
+    WHERE s.sid = ?
     GROUP BY s.sid;
     '''
 
     #    AND s.lister = r.reviewee     AND p.pid = pr.pid
 
-    cursor.execute(fetchSale, (allSearchResults[int(selection)][7],));
+    cursor.execute(fetchSale, (allSearchResults[int(selection)][8],));
     selectedSale = cursor.fetchone()
 
     print("\nLister's Email: " + selectedSale[0])
@@ -389,7 +388,7 @@ def showActiveListingsListProduct(product):
     print("Lister's Average Rating: " + str(selectedSale[2]))
     print("Sale's Description: " + selectedSale[3])
     print("Sale's End Date: " + str(selectedSale[4]))
-    print("Sale's End Time: " + "##################### TODO #####################")
+    print("Sale's End Time: " + str(allSearchResults[int(selection)][9]) + ":" + str(allSearchResults[int(selection)][10]))
     print("Product's Contioion: " + str(selectedSale[5]))
 
     resPrice = 0
@@ -449,7 +448,7 @@ def showActiveListings(user):
             CAST((strftime('%s',s.edate) - strftime('%s', 'now')) /86400 AS TEXT),
             CAST(((strftime('%s', s.edate) - strftime('%s', 'now')) % (86400)) / (3600) AS TEXT),
             CAST((((strftime('%s', s.edate) - strftime('%s', 'now')) % (86400)) % (3600)) / 60 AS TEXT),
-            s.sid
+            s.sid, CAST(((strftime('%s', s.edate)) % (86400)) / (3600) AS TEXT), CAST((((strftime('%s', s.edate)) % (86400)) % (3600)) / 60 AS TEXT)
     FROM sales s left outer join bids b using (sid), users u
     WHERE s.edate > datetime('now')
     AND s.lister = u.email
@@ -505,7 +504,7 @@ def showActiveListings(user):
         print("Lister's Average Rating: " + str(selectedSale[2]))
         print("Sale's Description: " + selectedSale[3])
         print("Sale's End Date: " + str(selectedSale[4]))
-        print("Sale's End Time: " + "##################### TODO #####################")
+        print("Sale's End Time: " + str(allSearchResults[int(selection)][8]) + ":" + str(allSearchResults[int(selection)][9]))
         print("Product's Contioion: " + str(selectedSale[5]))
 
         resPrice = 0
@@ -861,8 +860,7 @@ def searchSale(): # 3
             SELECT s.descr, count(bid), max(amount), s.rprice,
                     CAST((strftime('%s',s.edate) - strftime('%s', 'now')) /86400 AS TEXT),
                     CAST(((strftime('%s', s.edate) - strftime('%s', 'now')) % (86400)) / (3600) AS TEXT),
-                    CAST((((strftime('%s', s.edate) - strftime('%s', 'now')) % (86400)) % (3600)) / 60 AS TEXT),
-                    s.sid
+                    CAST((((strftime('%s', s.edate) - strftime('%s', 'now')) % (86400)) % (3600)) / 60 AS TEXT), s.sid, CAST(((strftime('%s', s.edate)) % (86400)) / (3600) AS TEXT), CAST((((strftime('%s', s.edate)) % (86400)) % (3600)) / 60 AS TEXT)
             FROM sales s left outer join bids b using (sid), users u
             WHERE s.edate > datetime('now')
             AND s.lister = u.email
@@ -922,7 +920,7 @@ def searchSale(): # 3
         print("Lister's Average Rating: " + str(selectedSale[2]))
         print("Sale's Description: " + selectedSale[3])
         print("Sale's End Date: " + str(selectedSale[4]))
-        print("Sale's End Time: " + "##################### TODO #####################")
+        print("Sale's End Time: " + + str(allSearchResults[int(selection)][8]) + ":" + str(allSearchResults[int(selection)][9]))
         print("Product's Contioion: " + str(selectedSale[5]))
 
         resPrice = 0
