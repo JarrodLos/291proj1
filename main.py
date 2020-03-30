@@ -5,6 +5,7 @@ import os
 import sys
 import datetime
 
+# Extra comment so I can do a null push - ignore
 # Kills the program and starts it up again automatically
 def restartProgram():
     connection.commit()
